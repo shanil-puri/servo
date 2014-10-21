@@ -20,6 +20,7 @@ extern crate log;
 /// versions at time of writing. Largely based on reverse-engineering of Firefox chrome
 /// devtool logs and reading of [code](http://mxr.mozilla.org/mozilla-central/source/toolkit/devtools/server/).
 
+
 extern crate collections;
 extern crate core;
 extern crate devtools_traits;
@@ -86,6 +87,9 @@ fn run_server(receiver: Receiver<DevtoolsControlMsg>, port: u16) {
     registry.find::<RootActor>("root");
 
     let actors = Arc::new(Mutex::new(registry));
+
+    //vector to store accepted connections
+    let mut accepted_connections: Vec<TcpStream> = Vec::new();
 
     /// Process the input from a single devtools client until EOF.
     fn handle_client(actors: Arc<Mutex<ActorRegistry>>, mut stream: TcpStream) {
@@ -171,6 +175,16 @@ fn run_server(receiver: Receiver<DevtoolsControlMsg>, port: u16) {
         actors.register(box console);
         actors.register(box inspector);
     }
+  
+    // method to close the accepted connections on recieve of ServerExitMsg
+    fn close_stream_connections(inpconnections: Vec<TcpStream>){
+            
+            for connection in inpconnections.iter() {
+                let mut _stream = connection.clone(); 
+                let _ = _stream.close_read();
+            }
+
+    }
 
     //TODO: figure out some system that allows us to watch for new connections,
     //      shut down existing ones at arbitrary times, and also watch for messages
@@ -185,7 +199,9 @@ fn run_server(receiver: Receiver<DevtoolsControlMsg>, port: u16) {
         match acceptor.accept() {
             Err(ref e) if e.kind == TimedOut => {
                 match receiver.try_recv() {
-                    Ok(ServerExitMsg) | Err(Disconnected) => break,
+                    
+                    Ok(ServerExitMsg) => close_stream_connections(accepted_connections.clone()),
+                    Err(Disconnected) => break,
                     Ok(NewGlobal(id, sender)) => handle_new_global(actors.clone(), id, sender),
                     Err(Empty) => acceptor.set_timeout(Some(POLL_TIMEOUT)),
                 }
@@ -193,6 +209,7 @@ fn run_server(receiver: Receiver<DevtoolsControlMsg>, port: u16) {
             Err(_e) => { /* connection failed */ }
             Ok(stream) => {
                 let actors = actors.clone();
+                accepted_connections.push(stream.clone());
                 spawn(proc() {
                     // connection succeeded
                     handle_client(actors, stream.clone())
