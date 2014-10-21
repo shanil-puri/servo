@@ -393,6 +393,11 @@ impl<LTF: LayoutTaskFactory, STF: ScriptTaskFactory> Constellation<LTF, STF> {
         }
         self.image_cache_task.exit();
         self.resource_task.send(resource_task::Exit);
+
+	// Send message to devtools on exit.
+	self.devtools_chan.as_ref().map(|chan| {
+    		chan.send(devtools_traits::ServerExitMsg);
+	});
         self.font_cache_task.exit();
         self.compositor_chan.send(ShutdownComplete);
     }
