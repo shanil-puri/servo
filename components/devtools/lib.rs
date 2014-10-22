@@ -20,7 +20,6 @@ extern crate log;
 /// versions at time of writing. Largely based on reverse-engineering of Firefox chrome
 /// devtool logs and reading of [code](http://mxr.mozilla.org/mozilla-central/source/toolkit/devtools/server/).
 
-
 extern crate collections;
 extern crate core;
 extern crate devtools_traits;
@@ -199,7 +198,6 @@ fn run_server(receiver: Receiver<DevtoolsControlMsg>, port: u16) {
         match acceptor.accept() {
             Err(ref e) if e.kind == TimedOut => {
                 match receiver.try_recv() {
-                    
                     Ok(ServerExitMsg) => close_stream_connections(accepted_connections.clone()),
                     Err(Disconnected) => break,
                     Ok(NewGlobal(id, sender)) => handle_new_global(actors.clone(), id, sender),
