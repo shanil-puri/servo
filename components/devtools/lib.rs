@@ -178,11 +178,10 @@ fn run_server(receiver: Receiver<DevtoolsControlMsg>, port: u16) {
     // method to close the accepted connections on recieve of ServerExitMsg
     fn close_stream_connections(inpconnections: Vec<TcpStream>){
             
-            for connection in inpconnections.iter() {
-                let mut _stream = connection.clone(); 
-                let _ = _stream.close_read();
-            }
-
+        for connection in inpconnections.iter() {
+            let mut _stream = connection.clone(); 
+            let _ = _stream.close_read();
+        }
     }
 
     //TODO: figure out some system that allows us to watch for new connections,
