@@ -87,7 +87,6 @@ fn run_server(receiver: Receiver<DevtoolsControlMsg>, port: u16) {
 
     let actors = Arc::new(Mutex::new(registry));
 
-    //vector to store accepted connections
     let mut accepted_connections: Vec<TcpStream> = Vec::new();
 
     /// Process the input from a single devtools client until EOF.
@@ -175,30 +174,25 @@ fn run_server(receiver: Receiver<DevtoolsControlMsg>, port: u16) {
         actors.register(box inspector);
     }
   
-    // method to close the accepted connections on recieve of ServerExitMsg
-    fn close_stream_connections(inpconnections: Vec<TcpStream>){
-            
-        for connection in inpconnections.iter() {
-            let mut _stream = connection.clone(); 
-            let _ = _stream.close_read();
-        }
-    }
-
     //TODO: figure out some system that allows us to watch for new connections,
     //      shut down existing ones at arbitrary times, and also watch for messages
     //      from multiple script tasks simultaneously. Polling for new connections
     //      for 300ms and then checking the receiver is not a good compromise
     //      (and makes Servo hang on exit if there's an open connection, no less).
-
-    //TODO: make constellation send ServerExitMsg on shutdown.
-
+    //TODO: make constellation send ServerExitMsg on shutdown. -> Addressed
     // accept connections and process them, spawning a new tasks for each one
     loop {
         match acceptor.accept() {
             Err(ref e) if e.kind == TimedOut => {
                 match receiver.try_recv() {
-                    Ok(ServerExitMsg) => close_stream_connections(accepted_connections.clone()),
-                    Err(Disconnected) => break,
+                    Ok(ServerExitMsg) | Err(Disconnected) => {
+                        for connection in accepted_connections.iter_mut() {
+            
+                            let _read = connection.close_read();
+                            let _write = connection.close_write();
+                        }
+                        break;
+                    }
                     Ok(NewGlobal(id, sender)) => handle_new_global(actors.clone(), id, sender),
                     Err(Empty) => acceptor.set_timeout(Some(POLL_TIMEOUT)),
                 }
