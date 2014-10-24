@@ -179,7 +179,6 @@ fn run_server(receiver: Receiver<DevtoolsControlMsg>, port: u16) {
     //      from multiple script tasks simultaneously. Polling for new connections
     //      for 300ms and then checking the receiver is not a good compromise
     //      (and makes Servo hang on exit if there's an open connection, no less).
-    //TODO: make constellation send ServerExitMsg on shutdown. -> Addressed
     // accept connections and process them, spawning a new tasks for each one
     loop {
         match acceptor.accept() {
