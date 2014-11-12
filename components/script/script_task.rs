@@ -34,10 +34,13 @@ use layout_interface;
 use page::{Page, IterablePage, Frame};
 use timers::TimerId;
 
+/*
 use devtools_traits;
 use devtools_traits::{DevtoolsControlChan, DevtoolsControlPort, NewGlobal, NodeInfo, GetRootNode};
 use devtools_traits::{DevtoolScriptControlMsg, EvaluateJS, EvaluateJSReply, GetDocumentElement};
 use devtools_traits::{GetChildren, GetLayout};
+*/
+use devtools::blah;
 use script_traits::{CompositorEvent, ResizeEvent, ReflowEvent, ClickEvent, MouseDownEvent};
 use script_traits::{MouseMoveEvent, MouseUpEvent, ConstellationControlMsg, ScriptTaskFactory};
 use script_traits::{ResizeMsg, AttachLayoutMsg, LoadMsg, SendEventMsg, ResizeInactiveMsg};
@@ -537,11 +540,11 @@ impl ScriptTask {
                 FromScript(DOMMessage(..)) => fail!("unexpected message"),
                 FromScript(WorkerPostMessage(addr, data, nbytes)) => Worker::handle_message(addr, data, nbytes),
                 FromScript(WorkerRelease(addr)) => Worker::handle_release(addr),
-                FromDevtools(EvaluateJS(id, s, reply)) => self.handle_evaluate_js(id, s, reply),
-                FromDevtools(GetRootNode(id, reply)) => self.handle_get_root_node(id, reply),
-                FromDevtools(GetDocumentElement(id, reply)) => self.handle_get_document_element(id, reply),
-                FromDevtools(GetChildren(id, node_id, reply)) => self.handle_get_children(id, node_id, reply),
-                FromDevtools(GetLayout(id, node_id, reply)) => self.handle_get_layout(id, node_id, reply),
+                FromDevtools(EvaluateJS(id, s, reply)) => DevtoolsTask::handle_evaluate_js(id, s, reply),
+                FromDevtools(GetRootNode(id, reply)) => DevtoolsTask::handle_get_root_node(id, reply),
+                FromDevtools(GetDocumentElement(id, reply)) => DevtoolsTask::handle_get_document_element(id, reply),
+                FromDevtools(GetChildren(id, node_id, reply)) => DevtoolsTask::handle_get_children(id, node_id, reply),
+                FromDevtools(GetLayout(id, node_id, reply)) => DevtoolsTask::handle_get_layout(id, node_id, reply),
             }
         }
 
@@ -552,7 +555,7 @@ impl ScriptTask {
 
         true
     }
-
+/*
     fn handle_evaluate_js(&self, pipeline: PipelineId, eval: String, reply: Sender<EvaluateJSReply>) {
         let page = get_page(&*self.page.borrow(), pipeline);
         let frame = page.frame();
@@ -622,7 +625,7 @@ impl ScriptTask {
         let rect = elem.GetBoundingClientRect().root();
         reply.send((rect.Width(), rect.Height()));
     }
-
+*/
     fn handle_new_layout(&self, new_layout_info: NewLayoutInfo) {
         debug!("Script: new layout: {:?}", new_layout_info);
         let NewLayoutInfo {

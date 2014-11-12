@@ -17,6 +17,7 @@ extern crate log;
 
 extern crate debug;
 extern crate devtools_traits;
+extern crate devtools;
 extern crate cssparser;
 extern crate collections;
 extern crate geom;
