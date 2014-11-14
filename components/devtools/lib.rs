@@ -49,7 +49,7 @@ use std::num;
 use serialize::json;
 use sync::{Arc, Mutex};
 
-mod blah;
+mod devtools;
 mod actor;
 /// Corresponds to http://mxr.mozilla.org/mozilla-central/source/toolkit/devtools/server/actors/
 mod actors {
