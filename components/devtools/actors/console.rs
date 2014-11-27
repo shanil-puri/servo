@@ -9,8 +9,8 @@
 use actor::{Actor, ActorRegistry};
 use protocol::JsonPacketSender;
 
-use devtools_traits::{EvaluateJS, NullValue, VoidValue, NumberValue, StringValue, BooleanValue};
-use devtools_traits::{ActorValue, DevtoolScriptControlMsg};
+use devtools_traits::{EvaluateJS, NullValue, VoidValue, NumberValue, StringValue, BooleanValue, GetCachedMessages};
+use devtools_traits::{ActorValue, DevtoolScriptControlMsg, CachedMessageType};
 use servo_msg::constellation_msg::PipelineId;
 
 use collections::TreeMap;
@@ -70,7 +70,7 @@ enum ConsoleMessageType {
 #[deriving(Encodable)]
 struct GetCachedMessagesReply {
     from: String,
-    messages: Vec<json::JsonObject>,
+    messages: Vec<CachedMessageType>,
 }
 
 #[deriving(Encodable)]
@@ -97,6 +97,11 @@ struct EvaluateJSReply {
     helperResult: json::Json,
 }
 
+#[deriving(Encodable)]
+struct CachedMessage {
+    pub messagetype: String,
+}
+
 pub struct ConsoleActor {
     pub name: String,
     pub pipeline: PipelineId,
@@ -116,7 +121,14 @@ impl Actor for ConsoleActor {
         match msg_type.as_slice() {
             "getCachedMessages" => {
                 let types = msg.find(&"messageTypes".to_string()).unwrap().as_list().unwrap();
-                let /*mut*/ messages = vec!();
+                let (chan, port) = channel();
+                let mut cachedmsg: Vec<String> = Vec::new();
+                for json_mod in types.iter() {
+                        let message: String = json::decode(json_mod.to_string().as_slice()).unwrap();
+                        cachedmsg.push(message);
+                }
+                self.script_chan.send(GetCachedMessages(cachedmsg , chan));
+                let cachedReply = port.recv();
                 for msg_type in types.iter() {
                     let msg_type = msg_type.as_string().unwrap();
                     match msg_type.as_slice() {
@@ -162,7 +174,7 @@ impl Actor for ConsoleActor {
 
                 let msg = GetCachedMessagesReply {
                     from: self.name(),
-                    messages: messages,
+                    messages: cachedReply,
                 };
                 stream.write_json_packet(&msg);
                 true

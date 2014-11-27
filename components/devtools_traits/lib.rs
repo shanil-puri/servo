@@ -11,12 +11,12 @@
 #![allow(non_snake_case)]
 
 extern crate "msg" as servo_msg;
-
+extern crate serialize;
 /// This module contains shared types and messages for use by devtools/script.
 /// The traits are here instead of in script so that the devtools crate can be
 /// modified independently of the rest of Servo.
-
 use servo_msg::constellation_msg::PipelineId;
+//use devtools::actors::console::{GetCachedMessagesReply};
 
 pub type DevtoolsControlChan = Sender<DevtoolsControlMsg>;
 pub type DevtoolsControlPort = Receiver<DevtoolScriptControlMsg>;
@@ -66,6 +66,28 @@ pub struct NodeInfo {
     pub incompleteValue: bool,
 }
 
+#[deriving(Encodable)]
+pub struct ConsoleAPIMessage {
+    _type: String,
+}
+
+#[deriving(Encodable)]
+pub struct PageErrorMessage {
+    _type: String,
+}
+
+#[deriving(Encodable)]
+pub struct LogMessage {
+    _type: String,
+}
+
+#[deriving(Encodable)]
+pub enum CachedMessageType {
+    ConsoleAPIType(ConsoleAPIMessage),
+    PageErrorType(PageErrorMessage),
+    LogMessageType(LogMessage),
+}
+
 /// Messages to process in a particular script task, as instructed by a devtools client.
 pub enum DevtoolScriptControlMsg {
     EvaluateJS(PipelineId, String, Sender<EvaluateJSReply>),
@@ -73,6 +95,7 @@ pub enum DevtoolScriptControlMsg {
     GetDocumentElement(PipelineId, Sender<NodeInfo>),
     GetChildren(PipelineId, String, Sender<Vec<NodeInfo>>),
     GetLayout(PipelineId, String, Sender<(f32, f32)>),
+    GetCachedMessages(Vec<String>, Sender<Vec<CachedMessageType>>),
 }
 
 /// Messages to instruct devtools server to update its state relating to a particular

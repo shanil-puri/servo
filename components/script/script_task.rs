@@ -38,7 +38,7 @@ use timers::TimerId;
 use devtools_traits;
 use devtools_traits::{DevtoolsControlChan, DevtoolsControlPort, NewGlobal, NodeInfo, GetRootNode};
 use devtools_traits::{DevtoolScriptControlMsg, EvaluateJS, EvaluateJSReply, GetDocumentElement};
-use devtools_traits::{GetChildren, GetLayout};
+use devtools_traits::{GetChildren, GetLayout, GetCachedMessages, CachedMessageType};
 use script_traits::{CompositorEvent, ResizeEvent, ReflowEvent, ClickEvent, MouseDownEvent};
 use script_traits::{MouseMoveEvent, MouseUpEvent, ConstellationControlMsg, ScriptTaskFactory};
 use script_traits::{ResizeMsg, AttachLayoutMsg, LoadMsg, SendEventMsg, ResizeInactiveMsg};
@@ -344,7 +344,7 @@ impl ScriptTask {
 
             js_runtime: js_runtime,
             js_context: DOMRefCell::new(Some(js_context)),
-            mouse_over_targets: DOMRefCell::new(None)
+            mouse_over_targets: DOMRefCell::new(None),
         }
     }
 
@@ -522,6 +522,7 @@ impl ScriptTask {
                 FromDevtools(GetDocumentElement(id, reply)) => self.handle_get_document_element(id, reply),
                 FromDevtools(GetChildren(id, node_id, reply)) => self.handle_get_children(id, node_id, reply),
                 FromDevtools(GetLayout(id, node_id, reply)) => self.handle_get_layout(id, node_id, reply),
+                FromDevtools(GetCachedMessages(messageType, reply)) => self.handle_get_cached_messages(messageType, reply),
             }
         }
 
@@ -601,6 +602,17 @@ impl ScriptTask {
         let elem: JSRef<Element> = ElementCast::to_ref(*node).expect("should be getting layout of element");
         let rect = elem.GetBoundingClientRect().root();
         reply.send((rect.Width(), rect.Height()));
+    }
+
+
+    fn handle_get_cached_messages(&self, _messageType: Vec<String>, reply: Sender<Vec<CachedMessageType>>) {
+        //TODO: check the messageTypes against a global Cache for console messages and page exceptions
+        let messages: Vec<CachedMessageType> = Vec::new();
+        /*
+        For each string in _messageType, search for the corresponding struct in the enum.
+        Include the corresponding messages in the vector messages. Send messages.
+        */
+        reply.send(messages);
     }
 
     fn handle_new_layout(&self, new_layout_info: NewLayoutInfo) {
