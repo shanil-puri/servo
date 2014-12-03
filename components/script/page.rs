@@ -2,7 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use dom::bindings::cell::DOMRefCell;
+use devtools_traits::DevtoolsControlChan;
+use dom::bindings::cell::{DOMRefCell, Ref, RefMut};
 use dom::bindings::codegen::Bindings::DocumentBinding::DocumentMethods;
 use dom::bindings::codegen::InheritTypes::NodeCast;
 use dom::bindings::js::{JS, JSRef, Temporary, OptionalRootable};
@@ -19,21 +20,19 @@ use layout_interface::{
 };
 use script_traits::{UntrustedNodeAddress, ScriptControlChan};
 
-use geom::{Point2D, Rect, Size2D};
+use geom::{Point2D, Rect};
 use js::rust::Cx;
 use servo_msg::compositor_msg::PerformingLayout;
 use servo_msg::compositor_msg::ScriptListener;
 use servo_msg::constellation_msg::{ConstellationChan, WindowSizeData};
 use servo_msg::constellation_msg::{PipelineId, SubpageId};
 use servo_net::resource_task::ResourceTask;
-use servo_util::geometry::{Au, MAX_RECT};
-use servo_util::geometry;
+use servo_util::geometry::Au;
 use servo_util::str::DOMString;
 use servo_util::smallvec::{SmallVec1, SmallVec};
-use std::cell::{Cell, Ref, RefMut};
+use std::cell::Cell;
 use std::comm::{channel, Receiver, Empty, Disconnected};
 use std::mem::replace;
-use std::num::abs;
 use std::rc::Rc;
 use url::Url;
 
@@ -101,9 +100,8 @@ pub struct Page {
     /// Number of unnecessary potential reflows that were skipped since the last reflow
     pub avoided_reflows: Cell<int>,
 
-    /// An enlarged rectangle around the page contents visible in the viewport, used
-    /// to prevent creating display list items for content that is far away from the viewport.
-    pub page_clip_rect: Cell<Rect<Au>>,
+    /// For providing instructions to an optional devtools server.
+    pub devtools_chan: Option<DevtoolsControlChan>,
 }
 
 pub struct PageIterator {
@@ -138,7 +136,8 @@ impl Page {
            window_size: WindowSizeData,
            resource_task: ResourceTask,
            constellation_chan: ConstellationChan,
-           js_context: Rc<Cx>) -> Page {
+           js_context: Rc<Cx>,
+           devtools_chan: Option<DevtoolsControlChan>) -> Page {
         let js_info = JSPageInfo {
             dom_static: GlobalStaticData(),
             js_context: js_context,
@@ -170,7 +169,7 @@ impl Page {
             damaged: Cell::new(false),
             pending_reflows: Cell::new(0),
             avoided_reflows: Cell::new(0),
-            page_clip_rect: Cell::new(MAX_RECT),
+            devtools_chan: devtools_chan
         }
     }
 
@@ -243,49 +242,6 @@ impl Page {
         }
         None
     }
-
-    fn should_move_clip_rect(&self, clip_rect: Rect<Au>, new_viewport: Rect<f32>) -> bool{
-        let clip_rect = Rect(Point2D(geometry::to_frac_px(clip_rect.origin.x) as f32,
-                                        geometry::to_frac_px(clip_rect.origin.y) as f32),
-                                Size2D(geometry::to_frac_px(clip_rect.size.width) as f32,
-                                       geometry::to_frac_px(clip_rect.size.height) as f32));
-
-        // We only need to move the clip rect if the viewport is getting near the edge of
-        // our preexisting clip rect. We use half of the size of the viewport as a heuristic
-        // for "close."
-        static VIEWPORT_SCROLL_MARGIN_SIZE: f32 = 0.5;
-        let viewport_scroll_margin = new_viewport.size * VIEWPORT_SCROLL_MARGIN_SIZE;
-
-        abs(clip_rect.origin.x - new_viewport.origin.x) <= viewport_scroll_margin.width ||
-        abs(clip_rect.max_x() - new_viewport.max_x()) <= viewport_scroll_margin.width ||
-        abs(clip_rect.origin.y - new_viewport.origin.y) <= viewport_scroll_margin.height ||
-        abs(clip_rect.max_y() - new_viewport.max_y()) <= viewport_scroll_margin.height
-    }
-
-    pub fn set_page_clip_rect_with_new_viewport(&self, viewport: Rect<f32>) -> bool {
-        // We use a clipping rectangle that is five times the size of the of the viewport,
-        // so that we don't collect display list items for areas too far outside the viewport,
-        // but also don't trigger reflows every time the viewport changes.
-        static VIEWPORT_EXPANSION: f32 = 2.0; // 2 lengths on each side plus original length is 5 total.
-        let proposed_clip_rect = geometry::f32_rect_to_au_rect(
-            viewport.inflate(viewport.size.width * VIEWPORT_EXPANSION,
-            viewport.size.height * VIEWPORT_EXPANSION));
-        let clip_rect = self.page_clip_rect.get();
-        if proposed_clip_rect == clip_rect {
-            return false;
-        }
-
-        let had_clip_rect = clip_rect != MAX_RECT;
-        if had_clip_rect && !self.should_move_clip_rect(clip_rect, viewport) {
-            return false;
-        }
-
-        self.page_clip_rect.set(proposed_clip_rect);
-
-        // If we didn't have a clip rect, the previous display doesn't need rebuilding
-        // because it was built for infinite clip (MAX_RECT).
-        had_clip_rect
-    }
 }
 
 impl Iterator<Rc<Page>> for PageIterator {
@@ -357,13 +313,13 @@ impl Page {
                         }
                         Ok(_) => {}
                         Err(Disconnected) => {
-                            panic!("Layout task failed while script was waiting for a result.");
+                            fail!("Layout task failed while script was waiting for a result.");
                         }
                     }
 
                     debug!("script: layout joined")
                 }
-                None => panic!("reader forked but no join port?"),
+                None => fail!("reader forked but no join port?"),
             }
         }
     }
@@ -393,7 +349,7 @@ impl Page {
                 debug!("avoided {:d} reflows", self.avoided_reflows.get());
                 self.avoided_reflows.set(0);
 
-                debug!("script: performing reflow for goal {}", goal);
+                debug!("script: performing reflow for goal {:?}", goal);
 
                 // Now, join the layout so that they will see the latest changes we have made.
                 self.join_layout();
@@ -425,7 +381,6 @@ impl Page {
                     script_join_chan: join_chan,
                     id: last_reflow_id.get(),
                     query_type: query_type,
-                    page_clip_rect: self.page_clip_rect.get(),
                 };
 
                 let LayoutChan(ref chan) = self.layout_chan;
