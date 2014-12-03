@@ -169,7 +169,7 @@ fn run_server(receiver: Receiver<DevtoolsControlMsg>, port: u16) {
                           message: String,
                           actor_pipelines: &mut HashMap<PipelineId, String>) {
         let console_actor_name = find_console_actor(actors.clone(), id, actor_pipelines);
-        let mut actors = actors.lock();
+        let actors = actors.lock();
         let console_actor = actors.find::<ConsoleActor>(console_actor_name.as_slice());
         let msg = ConsoleAPICall {
             from: console_actor.name.clone(),
@@ -184,7 +184,7 @@ fn run_server(receiver: Receiver<DevtoolsControlMsg>, port: u16) {
     fn find_console_actor(actors: Arc<Mutex<ActorRegistry>>,
                       id: PipelineId,
                       actor_pipelines: &mut HashMap<PipelineId, String>) -> String {
-        let mut actors = actors.lock();
+        let actors = actors.lock();
         let ref tab_actor_name = (*actor_pipelines)[id];
         let tab_actor = actors.find::<TabActor>(tab_actor_name.as_slice());
         let console_actor_name = tab_actor.console.clone();
