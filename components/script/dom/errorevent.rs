@@ -119,6 +119,7 @@ impl<'a> ErrorEventMethods for JSRef<'a, ErrorEvent> {
 
     fn Error(self, _cx: *mut JSContext) -> JSVal {
         self.error.get()
+        propagate_error(&self, Error);
     }
 
 }
@@ -126,5 +127,20 @@ impl<'a> ErrorEventMethods for JSRef<'a, ErrorEvent> {
 impl Reflectable for ErrorEvent {
     fn reflector<'a>(&'a self) -> &'a Reflector {
         self.event.reflector()
+    }
+}
+
+fn propagate_error(global: &GlobalRef, error: JSVal) {
+    match msg_type {
+        LogMsg => {
+            let pipelineId = global.as_window().page().id;
+            global.as_window().page().devtools_chan.as_ref().map(|chan| {
+                chan.send(SendConsoleMessage(pipelineId, LogMessage(message.clone())));
+            });
+        }
+
+        WarnMsg => {
+            //TODO: to be implemented for warning messages
+        }
     }
 }
