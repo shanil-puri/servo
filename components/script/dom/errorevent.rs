@@ -50,7 +50,7 @@ impl ErrorEvent {
 
     pub fn new_uninitialized(global: &GlobalRef) -> Temporary<ErrorEvent> {
         reflect_dom_object(box ErrorEvent::new_inherited(ErrorEventTypeId),
-                           global,
+                           *global,
                            ErrorEventBinding::Wrap)
     }
 
@@ -63,7 +63,7 @@ impl ErrorEvent {
                lineno: u32,
                colno: u32,
                error: JSVal) -> Temporary<ErrorEvent> {
-        let ev = ErrorEvent::new_uninitialized(global).root();
+        let ev = ErrorEvent::new_uninitialized(&*global).root();
         let event: JSRef<Event> = EventCast::from_ref(*ev);
         event.InitEvent(type_, can_bubble, cancelable);
         *ev.message.borrow_mut() = message;
@@ -91,7 +91,7 @@ impl ErrorEvent {
 
         let col_num = init.colno.unwrap_or(0);
 
-        let event = ErrorEvent::new(global, type_,
+        let event = ErrorEvent::new(&*global, type_,
                                 init.parent.bubbles, init.parent.cancelable,
                                 msg, file_name,
                                 line_num, col_num, init.error);
