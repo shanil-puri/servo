@@ -27,6 +27,7 @@ pub type DevtoolsControlPort = Receiver<DevtoolScriptControlMsg>;
 /// according to changes in the browser.
 pub enum DevtoolsControlMsg {
     NewGlobal(PipelineId, Sender<DevtoolScriptControlMsg>),
+    SendConsoleMessage(PipelineId, ConsoleMsg),
     ServerExitMsg
 }
 
@@ -39,6 +40,11 @@ pub enum EvaluateJSReply {
     NumberValue(f64),
     StringValue(String),
     ActorValue(String),
+}
+
+pub enum ConsoleMsg {
+    LogMessage(String),
+    //WarnMessage(PipelineId, String),
 }
 
 pub struct AttrInfo {
