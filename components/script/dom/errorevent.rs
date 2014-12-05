@@ -95,6 +95,9 @@ impl ErrorEvent {
                                 init.parent.bubbles, init.parent.cancelable,
                                 msg, file_name,
                                 line_num, col_num, init.error);
+
+        // let msg = string::raw::from_buf(msg as *const i8 as *const u8);
+        error!("Error at {:s}:{}: {:}\n", file_name, line_num, col_num);
         Ok(event)
     }
 
@@ -118,29 +121,12 @@ impl<'a> ErrorEventMethods for JSRef<'a, ErrorEvent> {
     }
 
     fn Error(self, _cx: *mut JSContext) -> JSVal {
-        self.error.get()
-        propagate_error(&self, Error);
+        self.error.get();
     }
-
 }
 
 impl Reflectable for ErrorEvent {
     fn reflector<'a>(&'a self) -> &'a Reflector {
         self.event.reflector()
-    }
-}
-
-fn propagate_error(global: &GlobalRef, error: JSVal) {
-    match msg_type {
-        LogMsg => {
-            let pipelineId = global.as_window().page().id;
-            global.as_window().page().devtools_chan.as_ref().map(|chan| {
-                chan.send(SendConsoleMessage(pipelineId, LogMessage(message.clone())));
-            });
-        }
-
-        WarnMsg => {
-            //TODO: to be implemented for warning messages
-        }
     }
 }

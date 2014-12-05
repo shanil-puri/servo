@@ -9,6 +9,7 @@ use dom::bindings::global::{GlobalRef, GlobalField};
 use dom::bindings::js::{JSRef, Temporary};
 use dom::bindings::utils::{Reflectable, Reflector, reflect_dom_object};
 use servo_util::str::DOMString;
+use devtools_traits::ReportConsoleMsg;
 
 #[dom_struct]
 pub struct Console {
@@ -50,6 +51,7 @@ impl<'a> ConsoleMethods for JSRef<'a, Console> {
 
     fn Error(self, message: DOMString) {
         println!("{:s}", message);
+        propagate_error(&self, message);
     }
 
     fn Assert(self, condition: bool, message: Option<DOMString>) {
